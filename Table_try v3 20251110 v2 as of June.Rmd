@@ -1,0 +1,494 @@
+---
+title: "Risk Tables"
+As of date: "2025-09-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message = FALSE)
+library(knitr)
+library(openxlsx)
+library(tidyr)
+library(dplyr)
+library(kableExtra)
+library(magrittr)
+as_of <- '2025-06-30'
+#Datasets
+source("table_data.R")
+
+
+convert_range <- function(x) {
+  result <- lapply(x, function(str) {
+    nums <- as.numeric(unlist(regmatches(str, gregexpr("\\d+\\.?\\d*", str))))
+    nums <- nums / 100
+    if (length(nums) == 1) nums <- rep(nums, 2)
+    nums
+  })
+    do.call(rbind, result) %>% 
+    as.data.frame() %>% 
+    setNames(c("lower", "upper"))
+}
+
+c_date<-"2025-06-30"
+c_GE_active_c<-"40% to 60%"
+c_GE_passive_c<-"40% to 60%"
+c_GE_active_max<-.10
+c_GE_passive_max<-.85
+
+
+c_FI_activeCore_c<-"35% to 75%"
+c_FI_activeCorePlus_c<-"0% to 30%"
+c_FI_passive_c<-"25% to 45%"
+c_FI_activeCore_max<-.25
+c_FI_activeCorePlus_max<-.15
+c_FI_passive_max<-.75
+
+c_AC_public_c <- "15% to 60%"
+c_AC_private_c <- "40% to 85%"
+c_AC_public_max <- .15
+c_AC_private_max <- .10
+
+
+c_RE_core_c <- "70% to 100%"
+c_RE_non_core_c <- "0% to 30%"
+
+c_PE_venture_c <- "5% to 15%"
+c_PE_distress_c <- "5% to 25%"
+c_PE_growth_c <- "40% to 70%"
+c_PE_secondary_c <- "2.5% to 25%"
+c_PE_co_investment_c <- "5% to 25%"
+
+c_GE<-c(c_GE_active_c,c_GE_passive_c)
+c_GE_max<-c(c_GE_active_max,c_GE_passive_max)
+
+c_FI<-c(c_FI_activeCore_c,c_FI_activeCorePlus_c,c_FI_passive_c)
+c_FI_max<-c(c_FI_activeCore_max,c_FI_activeCorePlus_max,c_FI_passive_max)
+
+c_AC<-c(c_AC_public_c,c_AC_private_c)
+c_AC_max<-c(c_AC_public_max,c_AC_private_max)
+
+c_RE<-c(c_RE_core_c,c_RE_non_core_c)
+
+c_PE<-c(c_PE_venture_c,c_PE_distress_c,c_PE_growth_c,c_PE_secondary_c,c_PE_co_investment_c)
+
+```
+
+
+
+## Data Cleaning
+
+### Risk Data
+
+```{r, echo=TRUE}
+Risk.v2 <- Risk %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE,format = "%d/%m/%y")) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  group_by(ENTITY_NAME,ENTITY_ID,BANK_ID) %>% 
+  summarise(sum_Y3_STD_DEV_NET= sum(Y3_STD_DEV_NET,na.rm = T),
+            sum_Y3_MGD_STD_DEV_NET = sum(Y3_MGD_STD_DEV_NET,na.rm = T),
+            sum_Y3_INFO_RATIO_NET = sum(Y3_INFO_RATIO_NET,na.rm = T),
+            sum_Y3_SHARPE_RATIO = sum(Y3_SHARPE_RATIO,na.rm = T),
+            sum_Y3_STD_DEV_BM3_VS_BM1=sum(Y3_STD_DEV_BM3_VS_BM1,na.rm = T))
+
+
+```
+
+### Global Equity
+
+```{r, echo=TRUE}
+GE1.v2 <- GE1 %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  filter(ENTITY_NAME!="Global Equity Comprehensive History") %>% 
+  group_by(ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(sum_BANK_MARKET_VALUE2 = sum_BANK_MARKET_VALUE/sum(sum_BANK_MARKET_VALUE))
+
+GE2.v2<- GE2 %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  group_by(ACTIVE_PASSIVE,ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(sum_BANK_MARKET_VALUE2 = sum_BANK_MARKET_VALUE/sum(sum_BANK_MARKET_VALUE))
+
+GE2.v2.1 <- GE2 %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  filter(ACTIVE_PASSIVE=="ACTIVE") %>% 
+  group_by(ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(sum_BANK_MARKET_VALUE2 = sum_BANK_MARKET_VALUE/sum(sum_BANK_MARKET_VALUE))
+
+GE2.v2.2 <- GE2 %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  filter(ACTIVE_PASSIVE=="PASSIVE") %>% 
+  group_by(ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup() %>% 
+  mutate(sum_BANK_MARKET_VALUE2 = sum_BANK_MARKET_VALUE/sum(sum_BANK_MARKET_VALUE))
+
+```
+
+### Fixed Income
+
+```{r, echo=TRUE}
+FI1.v2 <- FI1 %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  filter(ENTITY_NAME!="Fixed Income") %>% 
+  group_by(ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup()
+
+FI1.v2$PctofFIxTrans <- FI1.v2$sum_BANK_MARKET_VALUE/FI1.v2$sum_BANK_MARKET_VALUE[FI1.v2$ENTITY_NAME=="Fixed Income ex Transition"]
+
+FI2.v2<- FI2 %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  group_by(ACTIVE_PASSIVE,ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup() 
+
+FI2.v2$PctofFIxTrans <- FI2.v2$sum_BANK_MARKET_VALUE/FI1.v2$sum_BANK_MARKET_VALUE[FI1.v2$ENTITY_NAME=="Fixed Income ex Transition"]
+
+FI2.v2.1<-FI2.v2 %>% filter(ACTIVE_PASSIVE=="ACTIVE") %>% 
+  filter(ENTITY_NAME %in% c("Allspring Core","Amundi Asset Management US, Inc.","BlackRock Core Bond Enhanced Index",
+                            "Fixed Income Active Core Strategy","JP Morgan Core","Neuberger Berman Core Asset Management","Taplin, Canida & Habacht"))
+
+FI2.v2.2<-FI2.v2 %>% filter(ACTIVE_PASSIVE=="ACTIVE") %>% 
+  filter(ENTITY_NAME %in% c("Core Plus Overlay","Loomis Core Plus","Lord Abbett","Manulife Core Plus","PGIM","Wellington Core Plus"))
+
+
+
+```
+
+### Active Credit
+
+```{r, echo=TRUE}
+AC.v2 <- AC %>% mutate(MONTH_END_DATE = as.Date(MONTH_END_DATE)) %>% 
+  filter(MONTH_END_DATE==as.Date(c_date)) %>% 
+  group_by(ENTITY_NAME) %>% 
+  summarise(sum_BANK_MARKET_VALUE= sum(BANK_MARKET_VALUE,na.rm = T)) %>% 
+  ungroup()
+
+AC.v2$PctofFIxTrans <- AC.v2$sum_BANK_MARKET_VALUE/AC.v2$sum_BANK_MARKET_VALUE[AC.v2$ENTITY_NAME=="Active Credit xTransition"]
+```
+
+## Main Report (IntraClass)
+
+```{r}
+t1<-GE1.v2 %>% select(ENTITY_NAME,sum_BANK_MARKET_VALUE2) %>% 
+  mutate(IntraACRanges = c_GE,
+         WithinRange= ifelse(sum_BANK_MARKET_VALUE2>=convert_range(IntraACRanges)$lower&
+                               sum_BANK_MARKET_VALUE2<=convert_range(IntraACRanges)$upper,
+                             "Yes","No"),
+         MaxIndivPortfolio = c_GE_max,
+         IndivPortfolio = c(max(GE2.v2.1$sum_BANK_MARKET_VALUE2,na.rm = T),max(GE2.v2.2$sum_BANK_MARKET_VALUE2,na.rm = T)),
+         WithinRange2 = ifelse(IndivPortfolio>MaxIndivPortfolio,"No","Yes")
+         ) %>% 
+  select(-IndivPortfolio) %>% 
+  rename(ActualAllocation = sum_BANK_MARKET_VALUE2)%>%
+  bind_rows(tibble(ENTITY_NAME = "Global Equity"))%>% 
+  slice(n(), 1:(n()-1))  
+
+
+t2 <- FI1.v2 %>% select(ENTITY_NAME,PctofFIxTrans) %>% 
+  filter(ENTITY_NAME!="Fixed Income Active"&ENTITY_NAME!="Fixed Income ex Transition") %>% 
+  mutate(IntraACRanges = c_FI,
+         WithinRange= case_when(PctofFIxTrans>=convert_range(IntraACRanges)$lower&
+                               PctofFIxTrans<=convert_range(IntraACRanges)$upper~"Yes",
+                               TRUE~"No"),
+         MaxIndivPortfolio = c_FI_max,
+         IndivPortfolio = c(max(FI2.v2.1$PctofFIxTrans,na.rm = T),max(FI2.v2.2$PctofFIxTrans,na.rm = T),FI1.v2$PctofFIxTrans[FI1.v2$ENTITY_NAME=="Fixed Income Passive"]),
+         WithinRange2 = ifelse(IndivPortfolio>MaxIndivPortfolio,"No","Yes")
+         ) %>% 
+  select(-IndivPortfolio) %>% 
+  rename(ActualAllocation = PctofFIxTrans)%>%
+  bind_rows(tibble(ENTITY_NAME = "Fixed Income"))%>% 
+  slice(n(), 1:(n()-1))  
+
+
+
+t3<-AC.v2 %>% select(ENTITY_NAME,PctofFIxTrans) %>% 
+  filter(ENTITY_NAME!="Active Credit xTransition") %>% 
+  mutate(IntraACRanges = c_AC,
+         WithinRange= case_when(PctofFIxTrans>=convert_range(IntraACRanges)$lower&
+                               PctofFIxTrans<=convert_range(IntraACRanges)$upper~"Yes",
+                               TRUE~"No"),
+         MaxIndivPortfolio = c_AC_max,
+         WithinRange2 = NA_character_) %>% 
+  rename(ActualAllocation = PctofFIxTrans)%>%
+  bind_rows(tibble(ENTITY_NAME = "Active Credit"))%>% 
+  slice(n(), 1:(n()-1))  
+  
+
+t4 <- data.frame(ENTITY_NAME = c("Real Estate Core","Real Estate Non-Core"),
+                 ActualAllocation = c(.882,.118),
+                 IntraACRanges = c_RE)
+
+t4 <- t4 %>% mutate(WithinRange= case_when(ActualAllocation>=convert_range(IntraACRanges)$lower&
+                               ActualAllocation<=convert_range(IntraACRanges)$upper~"Yes",
+                               TRUE~"No"),
+                    MaxIndivPortfolio = NA_real_,
+                    WithinRange2 = NA_character_)%>%
+  bind_rows(tibble(ENTITY_NAME = "Real Estate"))%>% 
+  slice(n(), 1:(n()-1))  
+
+t5 <- data.frame(ENTITY_NAME = c("Venture Capital","Distressed/Turnaround","Buyouts and Growth Equity","Secondary",
+                                 "Co-Investments"),
+                 ActualAllocation = c(.091,.175,.502,.077,.155),
+                 IntraACRanges = c_PE)
+
+t5 <- t5 %>% mutate(WithinRange= case_when(ActualAllocation>=convert_range(IntraACRanges)$lower&
+                               ActualAllocation<=convert_range(IntraACRanges)$upper~"Yes",
+                               TRUE~"No"),
+                    MaxIndivPortfolio = NA_real_,
+                    WithinRange2 = NA_character_)%>%
+  bind_rows(tibble(ENTITY_NAME = "Private Equity"))%>% 
+  slice(n(), 1:(n()-1))  
+
+
+
+
+t_all <- bind_rows(
+  list('Global Equity' = t1,
+       'Fixed Income' = t2,
+       'Active Credit' = t3,
+       'Real Estate' = t4,
+       'Private Equity' = t5),
+  .id = "Table"
+)
+
+
+names(t_all) <- c("Table"," ","Actual Allocation","Intra-AC Ranges",
+                  "Within Range","Max Indiv. Portfolio","Within Range ")
+
+t_all$`Intra-AC Ranges`<-ifelse(is.na(t_all$`Intra-AC Ranges`),"",t_all$`Intra-AC Ranges`)
+
+
+t_all <- t_all %>%
+  mutate(
+    `Actual Allocation`     = ifelse(is.na(`Actual Allocation`), "",
+                                     sprintf("%.2f%%", `Actual Allocation` * 100)),
+    `Max Indiv. Portfolio`  = ifelse(is.na(`Max Indiv. Portfolio`), "",
+                                     sprintf("%.0f%%", `Max Indiv. Portfolio` * 100)),
+    `Within Range`          = ifelse(is.na(`Within Range`), "", `Within Range`),
+    `Within Range `         = ifelse(is.na(`Within Range `), "", `Within Range `),
+    `Within Range` = if_else(
+      tolower(trimws(`Within Range`)) == "no",
+      cell_spec("No", color = "red"),
+      `Within Range`
+    ),
+    `Within Range ` = if_else(
+      tolower(trimws(`Within Range `)) == "no",
+      cell_spec("No", color = "red"),
+      `Within Range `
+    )
+  ) 
+
+first_rows <- which(!duplicated(t_all$Table))
+last_rows <- which(!duplicated(t_all$Table, fromLast = TRUE))
+
+title_text <- "Intra-Asset Class Ranges & Maximum Individual Portfolio Allocation as Percent of Asset Class"
+
+kbl(
+  select(t_all, -Table),
+  row.names = FALSE,
+  escape = FALSE
+) %>%
+  add_header_above(
+    setNames(ncol(t_all) - 1, title_text),
+    bold = TRUE,
+    color = "white",
+    background = "#233D7B",
+    extra_css = "font-size:16px; text-align:center; vertical-align:middle;"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover", "condensed")
+  ) %>%
+  row_spec(0, bold = TRUE, background = "#385DAE", color = "white") %>%
+  row_spec(first_rows, bold = TRUE) %>%
+  row_spec(last_rows, extra_css = "border-bottom: 2px solid #000;")
+```
+
+
+## Main Report (Report Portrait)
+
+```{r}
+t6 <- data.frame(ENTITY_NAME = c("Tactical Asset Allocation ex PC RE PE and SI","Total Fund ex PC RE PE and SI","Total Fund Public Markets Active Composite2"),
+                 Yr3ActRiskStd = c("0.20%/0.40%","0.75%/1.25%",NA_character_),
+                 Yr3ActRisk = c(Risk.v2$sum_Y3_STD_DEV_BM3_VS_BM1[Risk.v2$ENTITY_NAME=="Total Fund ex RE PE SI & PC" & Risk.v2$ENTITY_ID=="C00368"],
+                                Risk.v2$sum_Y3_STD_DEV_NET[Risk.v2$ENTITY_NAME=="Total Fund ex RE PE SI & PC" & Risk.v2$ENTITY_ID=="C00368"],NA_real_)/100,
+                 AllocationStd = NA_character_,
+                 ActulAllocation = NA_real_,
+                 MaxIndivPortfolio=NA_character_,
+                 Yr3RiskAdjustedReturn = c(NA_real_,NA_real_,30),
+                 Yr3IR = c(NA_real_,NA_real_,Risk.v2$sum_Y3_INFO_RATIO_NET[Risk.v2$ENTITY_NAME=="Total Fund Public Markets Active" & Risk.v2$ENTITY_ID=="C00367"]*100))
+
+
+
+t7 <- data.frame(ENTITY_NAME = c("Global Equity ex Transition Comprehensive History","Active","Passive"),
+                 Yr3ActRiskStd = c("0.75%/1.25%",NA_character_,NA_character_),
+                 Yr3ActRisk = c(Risk.v2$sum_Y3_STD_DEV_NET[Risk.v2$ENTITY_NAME=="Global Equity ex Transition Comprehensive History"],NA_real_,NA_real_)/100,
+                 AllocationStd = c(NA_character_,"40% to 60%","40% to 60%"),
+                 ActulAllocation = c(NA_real_,GE1.v2$sum_BANK_MARKET_VALUE2[GE1.v2$ENTITY_NAME=="Global Equity Active"],GE1.v2$sum_BANK_MARKET_VALUE2[GE1.v2$ENTITY_NAME=="Global Equity Passive"]),
+                 MaxIndivPortfolio=c(NA_character_,"10%","85%"),
+                 Yr3RiskAdjustedReturn = c(NA_real_,25,NA_real_),
+                 Yr3IR = c(NA_real_,Risk.v2$sum_Y3_INFO_RATIO_NET[Risk.v2$ENTITY_NAME=="Global Equity Active" & Risk.v2$ENTITY_ID=="C00269"&Risk.v2$BANK_ID=="FRSGGDN001A0"]*100,NA_real_))
+
+
+
+t8 <- data.frame(ENTITY_NAME = c("Fixed Income ex Transition","Fixed Income Active","Fixed Income Core","Fixed Income Core Plus","Fixed Income Passive"),
+                 Yr3ActRiskStd = c("0.85%/1.25%",NA_character_,NA_character_,NA_character_,NA_character_),
+                 Yr3ActRisk = c(Risk.v2$sum_Y3_STD_DEV_NET[Risk.v2$ENTITY_NAME=="Fixed Income ex Transition"],NA_real_,NA_real_,NA_real_,NA_real_)/100,
+                 AllocationStd = c(NA_character_,"55% to 75%","35% to 75%","0% to 30%","25% to 45%"),
+                 ActulAllocation = c(NA_real_,FI1.v2$PctofFIxTrans[FI1.v2$ENTITY_NAME=="Fixed Income Active"],FI1.v2$PctofFIxTrans[FI1.v2$ENTITY_NAME=="Fixed Income Core"],FI1.v2$PctofFIxTrans[FI1.v2$ENTITY_NAME=="Fixed Income Core Plus"],FI1.v2$PctofFIxTrans[FI1.v2$ENTITY_NAME=="Fixed Income Passive"]),
+                 MaxIndivPortfolio=c(NA_character_,NA_character_,"20%/25%","15%","75%"),
+                 Yr3RiskAdjustedReturn = c(NA_real_,35,NA_real_,NA_real_,NA_real_),
+                 Yr3IR = c(NA_real_,Risk.v2$sum_Y3_INFO_RATIO_NET[Risk.v2$ENTITY_NAME=="Fixed Income Active" & Risk.v2$ENTITY_ID=="C00239"&Risk.v2$BANK_ID=="FRSGFDN001A0"]*100,NA_real_,NA_real_,NA_real_))
+
+
+t9 <- data.frame(ENTITY_NAME = c("Active Credit ex Transition","Public Credit (MAC)","Private Credit"),
+                 Yr3ActRiskStd = c(NA_character_,"2.25%/3.50%",NA_character_),
+                 Yr3ActRisk = NA_real_,
+                 AllocationStd = c(NA_character_,"15% to 60%","40% to 85%"),
+                 ActulAllocation = c(NA_real_,AC.v2$PctofFIxTrans[AC.v2$ENTITY_NAME=="Multi-Asset Credit"],AC.v2$PctofFIxTrans[AC.v2$ENTITY_NAME=="Private Credit Comprehensive History"]),
+                 MaxIndivPortfolio=c(NA_character_,"15%","10%"),
+                 Yr3RiskAdjustedReturn = c(NA_real_,20,NA_real_),
+                 Yr3IR = NA_real_)
+
+
+t10<-data.frame(ENTITY_NAME = c("Real Estate","Core","Non-Core","Leverage Exposure","Principal Investments","Office",
+                                "Retail","Industrial","Apartment","Other"),
+                 Yr3ActRiskStd = NA_character_,
+                 Yr3ActRisk = NA_real_,
+                 AllocationStd = c(NA_character_,"70% to 100%","0% to 30%",NA_character_,NA_character_,"+/- 15%","+/- 15%","+/- 15%","+/- 15%","0% to 25%"),
+                 ActulAllocation = c(NA_real_,.882,.118,.285,NA_real_,.193,.09,.357,.234,.126),
+                 MaxIndivPortfolio=c("35%/10%",NA_character_,NA_character_,"40%",NA_character_,NA_character_,NA_character_,NA_character_,NA_character_,NA_character_),
+                 Yr3RiskAdjustedReturn = NA_real_,
+                 Yr3IR = NA_real_)
+
+
+t11 <- data.frame(ENTITY_NAME = c("Private Equity","Venture Capital","Distressed/Turnaround","Buyouts and Growth Equity","Secondary","Co-Investments"),
+                 Yr3ActRiskStd = NA_character_,
+                 Yr3ActRisk = NA_real_,
+                 AllocationStd = c(NA_character_,"5% to 15%","5% to 25%","40% to 70%","2.5% to 25%","5% to 25%"),
+                 ActulAllocation = c(NA_real_,.091,.175,.502,.077,.155),
+                 MaxIndivPortfolio=NA_character_,
+                 Yr3RiskAdjustedReturn = NA_real_,
+                 Yr3IR = NA_real_)
+
+
+
+t12 <- data.frame(ENTITY_NAME = c("Cash Central Custody & Enhanced"),
+                 Yr3ActRiskStd = c("0.50%/0.75%"),
+                 Yr3ActRisk = c(Risk.v2$sum_Y3_STD_DEV_NET[Risk.v2=="Cash Central Custody & Enhanced"])/100,
+                 AllocationStd = NA_character_,
+                 ActulAllocation = NA_real_,
+                 MaxIndivPortfolio=NA_character_,
+                 Yr3RiskAdjustedReturn = NA_real_,
+                 Yr3IR = NA_real_)
+
+t_all <- bind_rows(
+  list(t6, t7, t8, t9, t10, t11, t12),
+  .id = "Table"
+)
+
+names(t_all) <- c("Table"," ","3 Yr Act Risk Std","3 Yr Act Risk",
+                  "Allocation Std","Actual Allocation","Max Indiv. Portfolio",
+                  "3 Yr Risk Adjusted Return (IR) Std","3 Yr IR")
+
+t_all <- t_all %>%
+  mutate(
+    `3 Yr Act Risk`        = ifelse(is.na(`3 Yr Act Risk`), "",
+                                    sprintf("%.2f%%", `3 Yr Act Risk` * 100)),
+    `Actual Allocation`    = ifelse(is.na(`Actual Allocation`), "",
+                                    sprintf("%.0f%%", `Actual Allocation` * 100)),
+    `3 Yr Act Risk Std`          = ifelse(is.na(`3 Yr Act Risk Std`), "", `3 Yr Act Risk Std`),
+    `Allocation Std`          = ifelse(is.na(`Allocation Std`), "", `Allocation Std`),
+    `Max Indiv. Portfolio`          = ifelse(is.na(`Max Indiv. Portfolio`), "", `Max Indiv. Portfolio`),
+    `3 Yr Risk Adjusted Return (IR) Std`          = ifelse(is.na(`3 Yr Risk Adjusted Return (IR) Std`), "", `3 Yr Risk Adjusted Return (IR) Std`),
+    `3 Yr IR`          = ifelse(is.na(`3 Yr IR`), "", round(`3 Yr IR`,0)),
+    
+  )
+
+first_rows <- which(!duplicated(t_all$Table))
+last_rows  <- which(!duplicated(t_all$Table, fromLast = TRUE))
+
+
+header_text <- paste(
+  "Risk Monitoring Report as of",
+  months(as.Date(c_date)),
+  substr(c_date, 1, 4)
+)
+
+kbl(
+  select(t_all, -Table),
+  row.names = FALSE,
+  escape = FALSE
+) %>%
+  add_header_above(
+    setNames(ncol(t_all) - 1, header_text),
+    bold = TRUE,
+    color = "white",
+    background = "#233D7B",
+    extra_css = "font-size:18px; text-align:center; vertical-align:middle;"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover", "condensed")
+  ) %>%
+  row_spec(0, bold = TRUE, background = "#385DAE", color = "white") %>%
+  row_spec(first_rows, bold = TRUE) %>%
+  row_spec(last_rows, extra_css = "border-bottom: 2px solid #000;")
+
+```
+
+
+
+## Main Report (Report Portrait: Strategic Investments)
+
+```{r}
+t13 <- data.frame(ENTITY_NAME = c("Strategic Investments"),
+                  TF3YrVolatility = c(Risk.v2$sum_Y3_MGD_STD_DEV_NET[Risk.v2$ENTITY_ID=="C00344"&Risk.v2$BANK_ID=="FRSGSAN003A0"&Risk.v2$ENTITY_NAME=="Total Fund"]/100),
+                  TFexSI3YrVolatility = c(Risk.v2$sum_Y3_MGD_STD_DEV_NET[Risk.v2$ENTITY_ID=="C00350"&Risk.v2$BANK_ID=="FRSGSAN008A0"&Risk.v2$ENTITY_NAME=="Total Fund ex Strategic Investments"]/100),
+                  TotalFund3YrRiskAdjustedReturn = c(Risk.v2$sum_Y3_SHARPE_RATIO[Risk.v2$ENTITY_NAME=="Total Fund"]/100),
+                  TotalFundexSI3YrRiskAdjustedReturn = c(Risk.v2$sum_Y3_SHARPE_RATIO[Risk.v2$ENTITY_NAME=="Total Fund ex Strategic Investments"]/100)
+                    )
+
+t13 <- t13 %>%
+  mutate(
+    TF3YrVolatility = sprintf("%.2f%%", TF3YrVolatility * 100),
+    TFexSI3YrVolatility = sprintf("%.2f%%", TFexSI3YrVolatility * 100),
+    TotalFund3YrRiskAdjustedReturn = sprintf("%.2f%%", TotalFund3YrRiskAdjustedReturn * 100),
+    TotalFundexSI3YrRiskAdjustedReturn = sprintf("%.2f%%", TotalFundexSI3YrRiskAdjustedReturn * 100)
+  )
+
+header_text <- paste(
+  "Strategic Investments Risk & Return Summary as of",
+  months(as.Date(c_date)),
+  substr(c_date, 1, 4)
+)
+
+kbl(
+  t13,
+  row.names = FALSE,
+  escape = FALSE,
+  col.names = c(" ",
+                "TF 3 Yr Volatility",
+                "TF ex SI 3 Yr Volatility",
+                "Total Fund 3 Yr  Risk  Adjusted Return (Sharpe)",
+                "Total Fund ex SI 3 Yr  Risk  Adjusted Return (Sharpe)")
+) %>%
+  add_header_above(
+    setNames(ncol(t13), header_text),
+    bold = TRUE,
+    color = "white",
+    background = "#233D7B",
+    extra_css = "font-size:18px; text-align:center; vertical-align:middle;"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover", "condensed")
+  ) %>%
+  row_spec(0, bold = TRUE, background = "#385DAE", color = "white")
+```
+
